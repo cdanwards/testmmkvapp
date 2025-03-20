@@ -5,7 +5,7 @@
  * @format
  */
 
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import type {PropsWithChildren} from 'react';
 import {
   ScrollView,
@@ -14,7 +14,10 @@ import {
   Text,
   useColorScheme,
   View,
+  Button,
 } from 'react-native';
+import {MMKV} from 'react-native-mmkv';
+import NetInfo, {NetInfoState} from '@react-native-community/netinfo';
 
 import {
   Colors,
@@ -23,6 +26,12 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
+
+// Create a new MMKV instance
+export const storage = new MMKV({
+  id: 'app-storage',
+  encryptionKey: 'my-secure-key',
+});
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -56,6 +65,42 @@ function Section({children, title}: SectionProps): React.JSX.Element {
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  const [counter, setCounter] = useState(0);
+  const [networkState, setNetworkState] = useState<NetInfoState | null>(null);
+
+  // Load the counter value when the app starts
+  useEffect(() => {
+    const savedCounter = storage.getNumber('counter') || 0;
+    setCounter(savedCounter);
+
+    // Initial network status check
+    NetInfo.fetch().then(setNetworkState);
+
+    // Subscribe to network state updates
+    const unsubscribe = NetInfo.addEventListener(setNetworkState);
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Update counter and save to storage
+  const incrementCounter = () => {
+    const newValue = counter + 1;
+    setCounter(newValue);
+    storage.set('counter', newValue);
+  };
+
+  const resetCounter = () => {
+    setCounter(0);
+    storage.set('counter', 0);
+  };
+
+  const getNetworkStatusColor = () => {
+    if (!networkState?.isConnected) {
+      return 'red';
+    }
+    return networkState?.isInternetReachable ? 'green' : 'orange';
+  };
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
@@ -78,10 +123,9 @@ function App(): React.JSX.Element {
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <ScrollView
-        style={backgroundStyle}>
+      <ScrollView style={backgroundStyle}>
         <View style={{paddingRight: safePadding}}>
-          <Header/>
+          <Header />
         </View>
         <View
           style={{
@@ -89,6 +133,35 @@ function App(): React.JSX.Element {
             paddingHorizontal: safePadding,
             paddingBottom: safePadding,
           }}>
+          <Section title="Network Status">
+            <View style={styles.networkContainer}>
+              <View
+                style={[
+                  styles.statusDot,
+                  {backgroundColor: getNetworkStatusColor()},
+                ]}
+              />
+              <Text style={[styles.sectionDescription, {marginLeft: 10}]}>
+                {networkState?.type || 'Unknown'}
+                {'\n'}
+                Connected: {networkState?.isConnected ? 'Yes' : 'No'}
+                {networkState?.isInternetReachable === false
+                  ? '\nNo Internet'
+                  : ''}
+              </Text>
+            </View>
+          </Section>
+
+          <Section title="MMKV Storage Example">
+            <Text style={[styles.sectionDescription, {marginBottom: 10}]}>
+              Counter: {counter}
+            </Text>
+            <View style={styles.buttonContainer}>
+              <Button title="Increment" onPress={incrementCounter} />
+              <View style={styles.buttonSpacer} />
+              <Button title="Reset" onPress={resetCounter} />
+            </View>
+          </Section>
           <Section title="Step One">
             Edit <Text style={styles.highlight}>App.tsx</Text> to change this
             screen and then come back to see your edits.
@@ -125,6 +198,24 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonSpacer: {
+    width: 20,
+  },
+  networkContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 });
 
