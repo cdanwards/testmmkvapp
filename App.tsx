@@ -6,26 +6,15 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import type {PropsWithChildren} from 'react';
 import {
-  ScrollView,
+  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
   Button,
 } from 'react-native';
 import {MMKV} from 'react-native-mmkv';
-import NetInfo, {NetInfoState} from '@react-native-community/netinfo';
-
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
 
 // Create a new MMKV instance
 export const storage = new MMKV({
@@ -33,171 +22,107 @@ export const storage = new MMKV({
   encryptionKey: 'my-secure-key',
 });
 
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
   const [counter, setCounter] = useState(0);
-  const [networkState, setNetworkState] = useState<NetInfoState | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string>('');
 
   // Load the counter value when the app starts
   useEffect(() => {
     const savedCounter = storage.getNumber('counter') || 0;
+    const savedTimestamp = storage.getString('timestamp') || '';
     setCounter(savedCounter);
-
-    // Initial network status check
-    NetInfo.fetch().then(setNetworkState);
-
-    // Subscribe to network state updates
-    const unsubscribe = NetInfo.addEventListener(setNetworkState);
-
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
+    setLastUpdated(savedTimestamp);
   }, []);
 
   // Update counter and save to storage
   const incrementCounter = () => {
     const newValue = counter + 1;
+    const timestamp = new Date().toISOString();
+
     setCounter(newValue);
+    setLastUpdated(timestamp);
+
     storage.set('counter', newValue);
+    storage.set('timestamp', timestamp);
   };
 
   const resetCounter = () => {
+    const timestamp = new Date().toISOString();
+
     setCounter(0);
+    setLastUpdated(timestamp);
+
     storage.set('counter', 0);
+    storage.set('timestamp', timestamp);
   };
-
-  const getNetworkStatusColor = () => {
-    if (!networkState?.isConnected) {
-      return 'red';
-    }
-    return networkState?.isInternetReachable ? 'green' : 'orange';
-  };
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
-
-  /*
-   * To keep the template simple and small we're adding padding to prevent view
-   * from rendering under the System UI.
-   * For bigger apps the reccomendation is to use `react-native-safe-area-context`:
-   * https://github.com/AppAndFlow/react-native-safe-area-context
-   *
-   * You can read more about it here:
-   * https://github.com/react-native-community/discussions-and-proposals/discussions/827
-   */
-  const safePadding = '5%';
 
   return (
-    <View style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView style={backgroundStyle}>
-        <View style={{paddingRight: safePadding}}>
-          <Header />
-        </View>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            paddingHorizontal: safePadding,
-            paddingBottom: safePadding,
-          }}>
-          <Section title="Network Status">
-            <View style={styles.networkContainer}>
-              <View
-                style={[
-                  styles.statusDot,
-                  {backgroundColor: getNetworkStatusColor()},
-                ]}
-              />
-              <Text style={[styles.sectionDescription, {marginLeft: 10}]}>
-                {networkState?.type || 'Unknown'}
-                {'\n'}
-                Connected: {networkState?.isConnected ? 'Yes' : 'No'}
-                {networkState?.isInternetReachable === false
-                  ? '\nNo Internet'
-                  : ''}
-              </Text>
-            </View>
-          </Section>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+      <View style={styles.content}>
+        <Text style={styles.title}>MMKV Storage Example</Text>
 
-          <Section title="MMKV Storage Example">
-            <Text style={[styles.sectionDescription, {marginBottom: 10}]}>
-              Counter: {counter}
+        <View style={styles.counterContainer}>
+          <Text style={styles.counterText}>Counter: {counter}</Text>
+
+          {lastUpdated ? (
+            <Text style={styles.timestamp}>
+              Last updated: {new Date(lastUpdated).toLocaleString()}
             </Text>
-            <View style={styles.buttonContainer}>
-              <Button title="Increment" onPress={incrementCounter} />
-              <View style={styles.buttonSpacer} />
-              <Button title="Reset" onPress={resetCounter} />
-            </View>
-          </Section>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+          ) : null}
         </View>
-      </ScrollView>
-    </View>
+
+        <View style={styles.buttonContainer}>
+          <Button title="Increment" onPress={incrementCounter} />
+          <View style={styles.buttonSpacer} />
+          <Button title="Reset" onPress={resetCounter} />
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
   },
-  sectionTitle: {
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  title: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    marginBottom: 30,
+    color: '#333',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  counterContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+    marginBottom: 30,
   },
-  highlight: {
-    fontWeight: '700',
+  counterText: {
+    fontSize: 22,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+  timestamp: {
+    fontSize: 14,
+    color: '#666',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -206,16 +131,6 @@ const styles = StyleSheet.create({
   },
   buttonSpacer: {
     width: 20,
-  },
-  networkContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
   },
 });
 
